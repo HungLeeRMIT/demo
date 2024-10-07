@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.service.OpenAIService;
+import com.example.demo.service.UserService;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,13 +17,20 @@ import java.util.Map;
 public class ChatController {
 
     private final OpenAIService openAIService;
+    private final UserService userService;
 
-    public ChatController(OpenAIService openAIService) {
+    public ChatController(OpenAIService openAIService, UserService userService) {
         this.openAIService = openAIService;
+        this.userService = userService;
     }
 
     @PostMapping("/chat")
     public ResponseEntity<Map<String, Object>> analyzeChat(@RequestBody String userInput) {
         return openAIService.analyzeInput(userInput);
+    }
+    
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
+        return userService.login(loginRequest);
     }
 }

@@ -19,8 +19,8 @@ public class OpenAIService {
     private String apiKey;
 
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-    private static final String MODEL_NORMAL = "gpt-4o-mini";
-    private static final String MODEL_COMPLEX = "gpt-4o";
+    private static final String MODEL_NORMAL = "gpt-3.5-turbo";
+    private static final String MODEL_COMPLEX = "gpt-3.5-turbo";
 
     private Map<String, Integer> emotionCounter = new HashMap<>();
 
@@ -41,6 +41,8 @@ public class OpenAIService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Authorization", "Bearer " + apiKey);
+        
+        System.out.println("API Key: " + apiKey);
 
         // Step 2: Constructing the prompt for complexity and emotion analysis
         String prompt = "Analyze the following user input to determine both its complexity and the underlying emotion.\n" +
