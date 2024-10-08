@@ -152,14 +152,7 @@ public class OpenAIService {
     
     public Map<String, Integer> getEmotionCount() {
         Map<String, Integer> response = new HashMap<>();
-        response.put("confused", emotionCounter.get("confused"));
-        response.put("normal", emotionCounter.get("normal"));
-        response.put("vhappy", emotionCounter.get("very happy"));
-        response.put("happy", emotionCounter.get("happy"));
-        response.put("sad", emotionCounter.get("sad"));
-        response.put("vsad", emotionCounter.get("very sad"));
-        response.put("scared", emotionCounter.get("scared"));
-        response.put("surprised", emotionCounter.get("surprised"));
+        response.putAll(emotionCounter);
         return response;
     }
 }
