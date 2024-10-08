@@ -31,7 +31,7 @@ public class ChatController {
     }
 
     @GetMapping("/emotions")
-    public Map<String, Integer> getEmotionCount() {
+    public int[] getEmotionCount() {
         return openAIService.getEmotionCount();
     }
 
