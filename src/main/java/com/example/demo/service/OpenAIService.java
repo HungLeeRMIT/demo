@@ -159,6 +159,7 @@ public class OpenAIService {
         emotionsMap.put("vsad", emotionCounter.get("vsad"));
         emotionsMap.put("scared", emotionCounter.get("scared"));
         emotionsMap.put("surprised", emotionCounter.get("surprised"));
+        emotionsMap.put("total", emotionCounter.values().stream().mapToInt(Integer::intValue).sum());
         return List.of(emotionsMap);
     }
 }
