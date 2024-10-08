@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -31,7 +32,7 @@ public class ChatController {
     }
 
     @GetMapping("/emotions")
-    public int[] getEmotionCount() {
+    public List<Map<String, Integer>> getEmotionCount() {
         return openAIService.getEmotionCount();
     }
 

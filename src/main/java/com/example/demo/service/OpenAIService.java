@@ -9,8 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.MediaType;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class OpenAIService {
@@ -150,17 +149,16 @@ public class OpenAIService {
         return ResponseEntity.ok(finalResponse);
     }
     
-    public int[] getEmotionCount() {
-        int[] emotionsArray = new int[]{
-            emotionCounter.get("vhappy"),
-            emotionCounter.get("happy"),
-            emotionCounter.get("sad"),
-            emotionCounter.get("vsad"),
-            emotionCounter.get("scared"),
-            emotionCounter.get("surprised"),
-            emotionCounter.get("normal"),
-            emotionCounter.get("confused")
-        };
-        return emotionsArray;
+    public List<Map<String, Integer>> getEmotionCount() {
+        Map<String, Integer> emotionsMap = new HashMap<>();
+        emotionsMap.put("confused", emotionCounter.get("confused"));
+        emotionsMap.put("normal", emotionCounter.get("normal"));
+        emotionsMap.put("vhappy", emotionCounter.get("vhappy"));
+        emotionsMap.put("happy", emotionCounter.get("happy"));
+        emotionsMap.put("sad", emotionCounter.get("sad"));
+        emotionsMap.put("vsad", emotionCounter.get("vsad"));
+        emotionsMap.put("scared", emotionCounter.get("scared"));
+        emotionsMap.put("surprised", emotionCounter.get("surprised"));
+        return List.of(emotionsMap);
     }
 }
