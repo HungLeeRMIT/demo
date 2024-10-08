@@ -19,17 +19,17 @@ public class OpenAIService {
     private String apiKey;
 
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-    private static final String MODEL_NORMAL = "gpt-3.5-turbo";
-    private static final String MODEL_COMPLEX = "gpt-3.5-turbo";
+    private static final String MODEL_NORMAL = "gpt-4o-mini";
+    private static final String MODEL_COMPLEX = "gpt-4o";
 
     private Map<String, Integer> emotionCounter = new HashMap<>();
 
     public OpenAIService() {
         // Initialize emotion counter
-        emotionCounter.put("very happy", 0);
+        emotionCounter.put("vhappy", 0);
         emotionCounter.put("happy", 0);
         emotionCounter.put("sad", 0);
-        emotionCounter.put("very sad", 0);
+        emotionCounter.put("vsad", 0);
         emotionCounter.put("scared", 0);
         emotionCounter.put("surprised", 0);
         emotionCounter.put("normal", 0);
@@ -145,9 +145,21 @@ public class OpenAIService {
 
         // Constructing final response in JSON format
         Map<String, Object> finalResponse = new HashMap<>();
-        finalResponse.put("emotion", emotionCounter);
         finalResponse.put("aiResponse", aiMessage);
 
         return ResponseEntity.ok(finalResponse);
+    }
+    
+    public Map<String, Integer> getEmotionCount() {
+        Map<String, Integer> response = new HashMap<>();
+        response.put("confused", emotionCounter.get("confused"));
+        response.put("normal", emotionCounter.get("normal"));
+        response.put("vhappy", emotionCounter.get("very happy"));
+        response.put("happy", emotionCounter.get("happy"));
+        response.put("sad", emotionCounter.get("sad"));
+        response.put("vsad", emotionCounter.get("very sad"));
+        response.put("scared", emotionCounter.get("scared"));
+        response.put("surprised", emotionCounter.get("surprised"));
+        return response;
     }
 }

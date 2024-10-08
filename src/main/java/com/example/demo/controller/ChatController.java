@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -28,7 +30,12 @@ public class ChatController {
     public ResponseEntity<Map<String, Object>> analyzeChat(@RequestBody String userInput) {
         return openAIService.analyzeInput(userInput);
     }
-    
+
+    @GetMapping("/emotion")
+    public Map<String, Integer> getEmotionCount() {
+        return openAIService.getEmotionCount();
+    }
+
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
         return userService.login(loginRequest);
