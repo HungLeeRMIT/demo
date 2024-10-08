@@ -14,9 +14,9 @@ public class UserService {
     private static final Map<String, String> users = new HashMap<>();
 
     static {
-        users.put("user1", "password1");
-        users.put("user2", "password2");
-        users.put("admin", "adminpass");
+        users.put("user1@gmail.com", "password1");
+        users.put("user2@gmail.com", "password2");
+        users.put("admin@vinbrain.net", "adminpass");
     }
 
     public ResponseEntity<Map<String, Object>> login(Map<String, String> loginRequest) {
