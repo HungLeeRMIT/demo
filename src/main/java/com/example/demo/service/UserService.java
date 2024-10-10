@@ -11,7 +11,7 @@ import java.util.Map;
 public class UserService {
 
     // Mocked user database for demonstration purposes
-    private static final Map<String, String> users = new HashMap<>();
+    private static Map<String, String> users = new HashMap<>();
 
     static {
         users.put("user1@gmail.com", "password1");
@@ -39,5 +39,33 @@ public class UserService {
             response.put("message", "Invalid username or password");
             return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
+    }
+    
+    public ResponseEntity<Map<String, Object>> signUp(Map<String, String> signUpRequest) {
+        String username = signUpRequest.get("username");
+        String password = signUpRequest.get("password");
+        String confirmPassword = signUpRequest.get("confirmPassword");
+    
+        Map<String, Object> response = new HashMap<>();
+    
+        if (username == null || password == null || confirmPassword == null) {
+            response.put("message", "Username, password, or password confirmation is missing");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    
+        if (!password.equals(confirmPassword)) {
+            response.put("message", "Password and confirm password do not match");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    
+        if (users.containsKey(username)) {
+            response.put("message", "Username already exists");
+            return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        }
+    
+        users.put(username, password);
+        response.put("message", "Sign up successful");
+        response.put("username", username);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 }
