@@ -40,4 +40,9 @@ public class ChatController {
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
         return userService.login(loginRequest);
     }
+    
+    @PostMapping("/signup")
+    public ResponseEntity<Map<String, Object>> signUp(@RequestBody Map<String, String> signUpRequest) {
+        return userService.signUp(signUpRequest);
+    }
 }
