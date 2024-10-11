@@ -44,15 +44,14 @@ public class ChatController {
     }
 
     @DeleteMapping("/chat/history/{user}")
-    public ResponseEntity<Void> deleteChatHistory(@PathVariable String user) {
-        openAIService.deleteChatHistory(user);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Map<String, String>> deleteChatHistory(@PathVariable String user) {
+        return openAIService.deleteChatHistory(user);
     }
 
     @DeleteMapping("/emotions/{user}")
-    public ResponseEntity<Void> deleteEmotionCount(@PathVariable String user) {
-        openAIService.deleteEmotionCount(user);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Map<String, String>> deleteEmotionCount(@PathVariable String user) {
+        return openAIService.deleteEmotionCount(user);
+
     }
 
     @PostMapping("/login")
