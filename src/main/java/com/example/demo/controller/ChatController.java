@@ -45,15 +45,9 @@ public class ChatController {
         return openAIService.getChatHistory(user);
     }
 
-    @PutMapping("/chat/history/{user}")
+    @PostMapping("/chat/history/delete/{user}")
     public ResponseEntity<Map<String, String>> deleteChatHistory(@PathVariable String user) {
         return openAIService.deleteChatHistory(user);
-    }
-
-    @PutMapping("/emotions/{user}")
-    public ResponseEntity<Map<String, String>> deleteEmotionCount(@PathVariable String user) {
-        return openAIService.deleteEmotionCount(user);
-
     }
 
     @PostMapping("/login")

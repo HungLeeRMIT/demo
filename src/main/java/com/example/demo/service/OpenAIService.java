@@ -291,22 +291,12 @@ public class OpenAIService {
     public ResponseEntity<Map<String, String>> deleteChatHistory(String user) {
         try {
             userChatHistories.remove(user);
+            userEmotionCounters.remove(user);
             return ResponseEntity.ok(Map.of("message", "Chat history deleted successfully."));
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to delete chat history: " + e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to delete chat history."));
-        }
-    }
-
-    public ResponseEntity<Map<String, String>> deleteEmotionCount(String user) {
-        try {
-            userEmotionCounters.remove(user);
-            return ResponseEntity.ok(Map.of("message", "Emotion count deleted successfully."));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to delete emotion count: " + e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to delete emotion count."));
         }
     }
 }
