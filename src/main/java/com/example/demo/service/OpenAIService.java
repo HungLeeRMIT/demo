@@ -252,35 +252,61 @@ public class OpenAIService {
     }
 
     public ResponseEntity<List<Map<String, Object>>> getChatHistory(String user) {
-        List<Map<String, Object>> chatHistory = userChatHistories.getOrDefault(user, new ArrayList<>());
-        List<Map<String, Object>> sortedChatHistory = chatHistory.stream()
-                .sorted(Comparator.comparing(m -> (LocalDateTime) m.get("createdAt")))
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(sortedChatHistory);
+        try {
+            List<Map<String, Object>> chatHistory = userChatHistories.getOrDefault(user, new ArrayList<>());
+            List<Map<String, Object>> sortedChatHistory = chatHistory.stream()
+                    .sorted(Comparator.comparing(m -> (LocalDateTime) m.get("createdAt")))
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(sortedChatHistory);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to get chat history: " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonList(Map.of("error", "Failed to get chat history.")));
+        }
     }
 
     public ResponseEntity<List<Map<String, Object>>> getEmotionCount(String user) {
-        Map<String, Integer> userEmotionCount = userEmotionCounters.getOrDefault(user, initializeEmotionCounter());
+        try {
+            Map<String, Integer> userEmotionCount = userEmotionCounters.getOrDefault(user, initializeEmotionCounter());
 
-        // Calculate total sum of all emotion counts
-        int total = userEmotionCount.values().stream().mapToInt(Integer::intValue).sum();
+            // Calculate total sum of all emotion counts
+            int total = userEmotionCount.values().stream().mapToInt(Integer::intValue).sum();
 
-        // Create a map to include the emotions and total count
-        Map<String, Object> emotionWithTotal = new HashMap<>(userEmotionCount);
-        emotionWithTotal.put("total", total);
+            // Create a map to include the emotions and total count
+            Map<String, Object> emotionWithTotal = new HashMap<>(userEmotionCount);
+            emotionWithTotal.put("total", total);
 
-        // Create a list and add the map to it
-        List<Map<String, Object>> formattedEmotionList = new ArrayList<>();
-        formattedEmotionList.add(emotionWithTotal);
+            // Create a list and add the map to it
+            List<Map<String, Object>> formattedEmotionList = new ArrayList<>();
+            formattedEmotionList.add(emotionWithTotal);
 
-        return ResponseEntity.ok(formattedEmotionList);
+            return ResponseEntity.ok(formattedEmotionList);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to get emotion count: " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonList(Map.of("error", "Failed to get emotion count.")));
+        }
     }
 
-    public void deleteChatHistory(String user) {
-        userChatHistories.remove(user);
+    public ResponseEntity<Map<String, String>> deleteChatHistory(String user) {
+        try {
+            userChatHistories.remove(user);
+            return ResponseEntity.ok(Map.of("message", "Chat history deleted successfully."));
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to delete chat history: " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to delete chat history."));
+        }
     }
 
-    public void deleteEmotionCount(String user) {
-        userEmotionCounters.remove(user);
+    public ResponseEntity<Map<String, String>> deleteEmotionCount(String user) {
+        try {
+            userEmotionCounters.remove(user);
+            return ResponseEntity.ok(Map.of("message", "Emotion count deleted successfully."));
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to delete emotion count: " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to delete emotion count."));
+        }
     }
 }
