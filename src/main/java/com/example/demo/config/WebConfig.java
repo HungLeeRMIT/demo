@@ -15,7 +15,7 @@ public class WebConfig {
             @Override
             public void addCorsMappings(@NonNull CorsRegistry registry) {
                 registry.addMapping("/api/**") // Match all endpoints under /api, including subpaths
-                        .allowedOrigins("http://localhost:3000", "http://localhost:8080") // Specify allowed origins
+                        .allowedOrigins("http://localhost:3000/*", "http://localhost:8080") // Specify allowed origins
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Allow all necessary HTTP methods,
                                                                                    // including OPTIONS for preflight
                         .allowedHeaders("*") // Allow all headers
