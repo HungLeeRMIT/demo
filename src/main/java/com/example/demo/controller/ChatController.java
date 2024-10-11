@@ -34,7 +34,7 @@ public class ChatController {
     }
 
     @GetMapping("/emotions/{user}")
-    public ResponseEntity<Map<String, Integer>> getEmotionCount(@PathVariable String user) {
+    public ResponseEntity<List<Map<String, Integer>>> getEmotionCount(@PathVariable String user) {
         return openAIService.getEmotionCount(user);
     }
 
