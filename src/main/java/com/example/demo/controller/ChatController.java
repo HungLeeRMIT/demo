@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import java.util.List;
 import java.util.Map;
@@ -45,12 +45,12 @@ public class ChatController {
         return openAIService.getChatHistory(user);
     }
 
-    @DeleteMapping("/chat/history/{user}")
+    @PutMapping("/chat/history/{user}")
     public ResponseEntity<Map<String, String>> deleteChatHistory(@PathVariable String user) {
         return openAIService.deleteChatHistory(user);
     }
 
-    @DeleteMapping("/emotions/{user}")
+    @PutMapping("/emotions/{user}")
     public ResponseEntity<Map<String, String>> deleteEmotionCount(@PathVariable String user) {
         return openAIService.deleteEmotionCount(user);
 
