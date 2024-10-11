@@ -1,17 +1,16 @@
 package com.example.demo.service;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.MediaType;
 
-import java.util.*;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @Service
 public class OpenAIService {
@@ -23,21 +22,46 @@ public class OpenAIService {
     private static final String MODEL_NORMAL = "gpt-4o-mini";
     private static final String MODEL_COMPLEX = "gpt-4o";
 
-    private Map<String, Map<String, Integer>> userEmotionCounters = new HashMap<>();
-    private Map<String, List<Map<String, Object>>> userChatHistories = new HashMap<>();
-
-    // Constructor
-    public OpenAIService() {
-        // Initialization moved to per-user level, no global initialization needed
-    }
+    private final Map<String, Map<String, Integer>> userEmotionCounters = new ConcurrentHashMap<>();
+    private final Map<String, List<Map<String, Object>>> userChatHistories = new ConcurrentHashMap<>();
+    private final Logger logger = Logger.getLogger(OpenAIService.class.getName());
 
     public ResponseEntity<Map<String, Object>> analyzeInput(String user, String userInput) {
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Authorization", "Bearer " + apiKey);
+        try {
+            // Step 2: Analyze complexity and emotions
+            Map<String, Object> analysisResponse = analyzeComplexityAndEmotion(userInput);
 
-        // Step 2: Constructing the prompt for complexity and emotion analysis
+            if (analysisResponse == null || !analysisResponse.containsKey("complexity")
+                    || !analysisResponse.containsKey("emotions")) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Failed to analyze input."));
+            }
+
+            String complexity = (String) analysisResponse.get("complexity");
+            updateEmotionCounter(user, (String) analysisResponse.get("emotions"));
+
+            // Step 3: Determine the model to use and get AI response
+            String model = complexity.equalsIgnoreCase("complex") ? MODEL_COMPLEX : MODEL_NORMAL;
+            String aiResponse = getAIResponse(userInput, model);
+
+            // Save chat history
+            updateChatHistory(user, userInput, aiResponse);
+
+            // Construct final response
+            Map<String, Object> finalResponse = new HashMap<>();
+            finalResponse.put("aiResponse", aiResponse);
+            finalResponse.put("chatHistory", userChatHistories.get(user));
+
+            return ResponseEntity.ok(finalResponse);
+
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Error occurred during input analysis: " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal server error."));
+        }
+    }
+
+    private Map<String, Object> analyzeComplexityAndEmotion(String userInput) {
         String prompt = "Analyze the following user input to determine both its complexity and the underlying emotion.\n"
                 +
                 "Complexity Assessment:\n\nClassify the complexity as either 'simple' or 'complex.'\n" +
@@ -52,59 +76,37 @@ public class OpenAIService {
                 "Input: " + userInput
                 + "\n\nProvide the following output:\nComplexity: [simple/complex]\nEmotions: [array of integers]";
 
-        // Creating request body for step 2
-        Map<String, Object> bodyStep2 = new HashMap<>();
-        bodyStep2.put("model", MODEL_NORMAL);
-        bodyStep2.put("messages", new Object[] {
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", MODEL_NORMAL);
+        requestBody.put("messages", new Object[] {
                 Map.of("role", "user", "content", prompt)
         });
 
-        HttpEntity<Map<String, Object>> requestStep2 = new HttpEntity<>(bodyStep2, headers);
-        ResponseEntity<Map> responseStep2 = restTemplate.exchange(OPENAI_URL, HttpMethod.POST, requestStep2, Map.class);
+        ResponseEntity<Map> response = sendRequestToOpenAI(requestBody);
 
-        // Extracting emotions and complexity from the response
-        @SuppressWarnings("unchecked")
-        Map<String, Object> responseBody = responseStep2.getBody();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> choices = responseBody != null
-                ? (Map<String, Object>) ((Map<String, Object>) ((java.util.List<?>) responseBody.get("choices")).get(0))
-                        .get("message")
-                : null;
-        String complexity = choices != null ? (String) choices.get("content") : null;
-        Object emotions = choices != null ? choices.get("content") : null;
+        if (response == null || response.getBody() == null)
+            return null;
 
-        // Initialize user's emotion counter if it doesn't exist
-        userEmotionCounters.putIfAbsent(user, initializeEmotionCounter());
+        // Extract the response details
+        return parseAnalysisResponse(response.getBody());
+    }
 
-        if (emotions instanceof String) {
-            String[] emotionArray = ((String) emotions).replace("[", "").replace("]", "").split(",");
-            String[] emotionLabels = { "vhappy", "happy", "sad", "vsad", "scared", "surprised", "normal", "confused" };
-
-            Map<String, Integer> userEmotionCounter = userEmotionCounters.get(user);
-            for (int i = 0; i < emotionArray.length; i++) {
-                if (emotionArray[i].trim().equals("1")) {
-                    userEmotionCounter.put(emotionLabels[i], userEmotionCounter.get(emotionLabels[i]) + 1);
-                }
-            }
-        }
-
-        // Step 3: Determine which model to use based on complexity
-        String modelStep3 = complexity != null && complexity.contains("complex") ? MODEL_COMPLEX : MODEL_NORMAL;
-
-        // Step 3: Make another API call with system prompt
+    private String getAIResponse(String userInput, String model) {
         String systemPrompt = "You are a funny, sympathetic, supportive, friendly, thoughtful and understanding friend. Embody these traits in every interaction.\n"
                 +
                 "\n### Response Guidelines:\n" +
                 "1. **Language Adaptation**:\n" +
-                "   - Vigilantly observe the language of the user`s latest input and respond in the same language as the user`s latest input.\n"
+                "   - Vigilantly observe the language of the user’s latest input and respond in the same language as the user’s latest input.\n"
                 +
                 "\n2. **Emojis**:\n" +
-                "   - Frequently integrate diverse and colorful emojis (avoid grey-colored emojis) to convey emotions and add a friendly touch. Ensure variety in emojis to enhance engagement and relevance to the context. Avoid repeating emojis from previous responses.\n"
+                "   - Frequently integrate diverse and colorful emojis to convey emotions and add a friendly touch. Ensure variety in emojis to enhance engagement and relevance to the context. Avoid repeating emojis from previous responses.\n"
                 +
                 "\n3. **Questions and Conduct**:\n" +
-                "   - When you ask a question, ask maximum one question or don`t ask any question.\n" +
-                "   - Check past interactions and make sure not to ask too many questions in a row.\n" +
-                "   - STRICTLY AVOID vulgarity and negativity, ensuring respectful and polite communication.\n" +
+                "   - When you ask a question, ask maximum one question or don’t ask any question.\n" +
+                "   - Check past interactions and make sure not to ask too many questions in a row.\n"
+                +
+                "   - STRICTLY AVOID vulgarity and negativity, ensuring respectful and polite communication.\n"
+                +
                 "\n4. **Diversity in Responses**:\n" +
                 "   - Use VARIED and CREATIVE response starters to foster engaging dialogue.\n" +
                 "   - Thoroughly review AI previous responses. STRICTLY NEVER repeat any similar or similar sounding phrases or starters from prior AI responses.\n"
@@ -112,7 +114,7 @@ public class OpenAIService {
                 "   - Ensure varied sentence structure and vocabulary.\n" +
                 "   - When generating your answer in Vietnamese, avoid starting with \"Ôi\", \"Ồ\" and similar sounding words.\n"
                 +
-                "   - Only occasionally use the user`s name in your responses. Avoid using the user`s name in every response.\n"
+                "   - Only occasionally use the user’s name in your responses. Avoid using the user’s name in every response.\n"
                 +
                 "\n5. **Pronoun Consistency**:\n" +
                 "   - Match pronouns based on the user’s preference and the language used, especially in multilingual contexts.\n"
@@ -125,88 +127,60 @@ public class OpenAIService {
                 "   - Focus on providing thoughtful and personalized interactions for each user query.\n" +
                 "   - Include conversational enders typical to the user’s language to enhance warmth and engagement.\n"
                 +
-                "\n8. **User`s Emotion Recognition**:\n" +
+                "\n8. **User’s Emotion Recognition**:\n" +
                 "   - When the user wants to share their feelings, NEVER provide suggestions or recommendations unless you are asked to do so.\n"
                 +
-                "   - Adjust your tone and responses based on the user`s emotional state.\n" +
+                "   - Adjust your tone and responses based on the user’s emotional state.\n" +
                 "   - If the user seems to want to be listened to, avoid talking too much. Allow the user to express themselves and feel heard. AVOID REPETITIVE OFFERS OF FURTHER DISCUSSION UNLESS USER EXPLICITLY REQUESTS IT.\n"
                 +
                 "\n9. **Response Length Limit**:\n" +
                 "   - Keep your response short and avoid overly lengthy response.\n" +
-                "   - NEVER generate more than 4 sentences unless you are providing information that the user requested. \n"
-                +
-                "\n10. **Strict Content Suggestion**:\n" +
-                "   - STRICTLY USE ONLY the links and provided content included in the data sent to \"role: assistant\" within the same API request data when you want to include links and external content in your response. UNDER NO CIRCUMSTANCES ARE YOU ALLOWED GENERATE ANY LINKS OR EXTERNAL CONTENT and EXTERNAL SOCIAL MEDIA CONTENT that is NOT INCLUDED in the data sent to \"role: assistant\". Carefully check the user’s input. If there are no relevant links or provided content, inform the user that you don`t have any links or content to provide.\n"
-                +
-                "   - UNDER NO CIRCUMSTANCES ARE YOU ALLOWED GENERATE CONTENT RELATED TO SELF HARM, ILLEGAL SUBSTANCES AND ACTIVITIES, OR ANY INAPPROPRIATE MATERIAL.\n"
-                +
-                "\n### Tasks:\n" +
-                "- Based on your last interactions and provided information, craft a thoughtful response that adheres strictly to the guidelines above, ensuring all interactions demonstrate the expected characteristics.\n"
-                +
-                "- Respond thoughtfully, taking context into account. \n" +
-                "- NEVER suggest the provided links, even when you think the user might be interested. ONLY PROVIDE the links EXPLICITLY when requested by the user to do so.\n"
-                +
-                "- ADHERE STRICTLY to these GUIDELINES and TASKS PROVIDED ABOVE in ALL INTERACTIONS.";
+                "   - NEVER generate more than 4 sentences unless you are providing information that the user requested.\n";
 
-        // Creating request body for step 3
-        Map<String, Object> bodyStep3 = new HashMap<>();
-        bodyStep3.put("model", modelStep3);
-        bodyStep3.put("messages", new Object[] {
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("messages", new Object[] {
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user", "content", userInput)
         });
 
-        HttpEntity<Map<String, Object>> requestStep3 = new HttpEntity<>(bodyStep3, headers);
-        ResponseEntity<Map> responseStep3 = restTemplate.exchange(OPENAI_URL, HttpMethod.POST, requestStep3, Map.class);
+        ResponseEntity<Map> response = sendRequestToOpenAI(requestBody);
 
-        // Extracting message content from the response
-        String aiMessage = null;
-        if (responseStep3.getBody() != null) {
-            Map<String, Object> responseStep3Body = responseStep3.getBody();
-            Map<String, Object> choice = responseStep3Body != null
-                    ? (Map<String, Object>) ((Map<String, Object>) ((java.util.List<?>) responseStep3Body
-                            .get("choices")).get(0)).get("message")
-                    : null;
-            aiMessage = choice != null ? (String) choice.get("content") : null;
+        if (response == null || response.getBody() == null)
+            return "Sorry, I couldn't generate a response.";
+
+        return parseAIResponse(response.getBody());
+    }
+
+    private void updateEmotionCounter(String user, String emotions) {
+        String[] emotionArray = emotions.replace("[", "").replace("]", "").split(",");
+        String[] emotionLabels = { "vhappy", "happy", "sad", "vsad", "scared", "surprised", "normal", "confused" };
+
+        userEmotionCounters.putIfAbsent(user, initializeEmotionCounter());
+
+        Map<String, Integer> userEmotionCounter = userEmotionCounters.get(user);
+        for (int i = 0; i < emotionArray.length; i++) {
+            if (emotionArray[i].trim().equals("1")) {
+                userEmotionCounter.put(emotionLabels[i], userEmotionCounter.get(emotionLabels[i]) + 1);
+            }
         }
+    }
 
-        // Save chat history
-        Map<String, Object> userMessage = new HashMap<>();
-        userMessage.put("type", "user");
-        userMessage.put("message", userInput);
-        userMessage.put("createdAt", LocalDateTime.now());
+    private void updateChatHistory(String user, String userInput, String aiResponse) {
+        Map<String, Object> userMessage = Map.of(
+                "type", "user",
+                "message", userInput,
+                "createdAt", LocalDateTime.now());
 
-        Map<String, Object> botMessage = new HashMap<>();
-        botMessage.put("type", "bot");
-        botMessage.put("message", aiMessage);
-        botMessage.put("createdAt", LocalDateTime.now());
+        Map<String, Object> botMessage = Map.of(
+                "type", "bot",
+                "message", aiResponse,
+                "createdAt", LocalDateTime.now());
 
         userChatHistories.putIfAbsent(user, new ArrayList<>());
-        userChatHistories.get(user).add(userMessage);
-        if (aiMessage != null) {
-            userChatHistories.get(user).add(botMessage);
-        }
-
-        // Constructing final response in JSON format
-        Map<String, Object> finalResponse = new HashMap<>();
-        finalResponse.put("aiResponse", aiMessage);
-        finalResponse.put("chatHistory", userChatHistories.get(user));
-
-        return ResponseEntity.ok(finalResponse);
-    }
-
-    public ResponseEntity<List<Map<String, Object>>> getChatHistory(String user) {
-        List<Map<String, Object>> chatHistory = userChatHistories.getOrDefault(user, new ArrayList<>());
-        List<Map<String, Object>> sortedChatHistory = chatHistory.stream()
-                .sorted((m1, m2) -> ((LocalDateTime) m1.get("createdAt"))
-                        .compareTo((LocalDateTime) m2.get("createdAt")))
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(sortedChatHistory);
-    }
-
-    public ResponseEntity<Map<String, Integer>> getEmotionCount(String user) {
-        Map<String, Integer> userEmotionCount = userEmotionCounters.getOrDefault(user, initializeEmotionCounter());
-        return ResponseEntity.ok(userEmotionCount);
+        List<Map<String, Object>> chatHistory = userChatHistories.get(user);
+        chatHistory.add(userMessage);
+        chatHistory.add(botMessage);
     }
 
     private Map<String, Integer> initializeEmotionCounter() {
@@ -220,6 +194,68 @@ public class OpenAIService {
         emotionCounter.put("normal", 0);
         emotionCounter.put("confused", 0);
         return emotionCounter;
+    }
+
+    private ResponseEntity<Map> sendRequestToOpenAI(Map<String, Object> requestBody) {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + apiKey);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+        try {
+            return restTemplate.exchange(OPENAI_URL, HttpMethod.POST, request, Map.class);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to send request to OpenAI: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private Map<String, Object> parseAnalysisResponse(Map<String, Object> responseBody) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Map<String, Object> choice = (Map<String, Object>) ((List<?>) responseBody.get("choices")).get(0);
+            String content = (String) ((Map<String, Object>) choice.get("message")).get("content");
+
+            // Extract complexity and emotions from content
+            String complexity = content.contains("simple") ? "simple" : "complex";
+            String emotions = content.substring(content.indexOf("[") + 1, content.indexOf("]"));
+
+            result.put("complexity", complexity);
+            result.put("emotions", "[" + emotions + "]");
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to parse analysis response: " + e.getMessage(), e);
+        }
+        return result;
+    }
+
+    private String parseAIResponse(Map<String, Object> responseBody) {
+        try {
+            Map<String, Object> choice = (Map<String, Object>) ((List<?>) responseBody.get("choices")).get(0);
+            return (String) ((Map<String, Object>) choice.get("message")).get("content");
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to parse AI response: " + e.getMessage(), e);
+            return "Sorry, an error occurred.";
+        }
+    }
+
+    public ResponseEntity<List<Map<String, Object>>> getChatHistory(String user) {
+        List<Map<String, Object>> chatHistory = userChatHistories.getOrDefault(user, new ArrayList<>());
+        List<Map<String, Object>> sortedChatHistory = chatHistory.stream()
+                .sorted(Comparator.comparing(m -> (LocalDateTime) m.get("createdAt")))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(sortedChatHistory);
+    }
+
+    public ResponseEntity<List<Map<String, Integer>>> getEmotionCount(String user) {
+        Map<String, Integer> userEmotionCount = userEmotionCounters.getOrDefault(user, initializeEmotionCounter());
+
+        // Create a list with a single map that holds the emotion counts
+        List<Map<String, Integer>> formattedEmotionList = new ArrayList<>();
+        formattedEmotionList.add(userEmotionCount);
+
+        return ResponseEntity.ok(formattedEmotionList);
     }
 
     public void deleteChatHistory(String user) {
