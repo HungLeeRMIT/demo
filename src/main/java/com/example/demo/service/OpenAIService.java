@@ -248,12 +248,19 @@ public class OpenAIService {
         return ResponseEntity.ok(sortedChatHistory);
     }
 
-    public ResponseEntity<List<Map<String, Integer>>> getEmotionCount(String user) {
+    public ResponseEntity<List<Map<String, Object>>> getEmotionCount(String user) {
         Map<String, Integer> userEmotionCount = userEmotionCounters.getOrDefault(user, initializeEmotionCounter());
 
-        // Create a list with a single map that holds the emotion counts
-        List<Map<String, Integer>> formattedEmotionList = new ArrayList<>();
-        formattedEmotionList.add(userEmotionCount);
+        // Calculate total sum of all emotion counts
+        int total = userEmotionCount.values().stream().mapToInt(Integer::intValue).sum();
+
+        // Create a map to include the emotions and total count
+        Map<String, Object> emotionWithTotal = new HashMap<>(userEmotionCount);
+        emotionWithTotal.put("total", total);
+
+        // Create a list and add the map to it
+        List<Map<String, Object>> formattedEmotionList = new ArrayList<>();
+        formattedEmotionList.add(emotionWithTotal);
 
         return ResponseEntity.ok(formattedEmotionList);
     }
